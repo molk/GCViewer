@@ -1,27 +1,23 @@
 package com.tagtraum.perf.gcviewer.view;
 
 import com.tagtraum.perf.gcviewer.model.GCModel;
+import com.tagtraum.perf.gcviewer.view.model.GCPreferences;
 
 import javax.imageio.ImageIO;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.EventQueue;
-import java.awt.Graphics2D;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
-import javax.swing.JScrollPane;
-import javax.swing.SwingUtilities;
 
-import com.tagtraum.perf.gcviewer.view.model.GCPreferences;
+import static javax.swing.SwingUtilities.invokeAndWait;
 
 public class SimpleChartRenderer {
 
     public void render(GCModel model, FileOutputStream outputStream) throws IOException {
-        GCPreferences gcPreferences = new GCPreferences();
-        gcPreferences.load();
+        GCPreferences gcPreferences = new GCPreferences().load();
         Dimension d = new Dimension(gcPreferences.getWindowWidth(), gcPreferences.getWindowHeight());
 
         BufferedImage image = new BufferedImage(d.width, d.height, BufferedImage.TYPE_INT_RGB);
@@ -69,7 +65,7 @@ public class SimpleChartRenderer {
 
         public void execute(ChartDrawingParameters params) throws IOException {
             try {
-                SwingUtilities.invokeAndWait(() -> {
+                invokeAndWait(() -> {
                     try {
                         drawAndSaveToStream(params);
                     }

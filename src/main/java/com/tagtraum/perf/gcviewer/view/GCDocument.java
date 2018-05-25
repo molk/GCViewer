@@ -1,31 +1,20 @@
 package com.tagtraum.perf.gcviewer.view;
 
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Point;
+import com.tagtraum.perf.gcviewer.model.GCResource;
+import com.tagtraum.perf.gcviewer.view.model.GCPreferences;
+import com.tagtraum.perf.gcviewer.view.model.GCResourceGroup;
+
+import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import javax.swing.BoundedRangeModel;
-import javax.swing.DefaultBoundedRangeModel;
-import javax.swing.JInternalFrame;
-import javax.swing.JPanel;
-import javax.swing.JScrollBar;
-import javax.swing.JScrollPane;
-import javax.swing.JTabbedPane;
-import javax.swing.JViewport;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-
-import com.tagtraum.perf.gcviewer.model.GCResource;
-import com.tagtraum.perf.gcviewer.view.model.GCPreferences;
-import com.tagtraum.perf.gcviewer.view.model.GCResourceGroup;
+import static java.util.Arrays.stream;
 
 /**
  * GCDocument.
@@ -36,7 +25,7 @@ public class GCDocument extends JInternalFrame {
 
     private static final Logger LOGGER = Logger.getLogger(GCDocument.class.getName()); 
     
-    private final List<ChartPanelView> chartPanelViews = new ArrayList<ChartPanelView>();
+    private final List<ChartPanelView> chartPanelViews = new ArrayList<>();
     private ModelChart modelChartListFacade;
     private boolean showModelMetricsPanel = true;
     private boolean watched;
@@ -46,7 +35,7 @@ public class GCDocument extends JInternalFrame {
         super(title, true, true, true, false);
         
         // keep a copy of the preferences
-        this.preferences = new GCPreferences();
+        this.preferences = new GCPreferences().load();
         this.preferences.setTo(preferences);
         
         showModelMetricsPanel = preferences.isShowModelMetricsPanel();
@@ -75,7 +64,7 @@ public class GCDocument extends JInternalFrame {
      * @return list of GCResources displayed in thsi document
      */
     public List<GCResource> getGCResources() {
-        List<GCResource> gcResourceList = new ArrayList<GCResource>();
+        List<GCResource> gcResourceList = new ArrayList<>();
         for (ChartPanelView view : chartPanelViews) {
             gcResourceList.add(view.getGCResource());
         }
@@ -92,16 +81,14 @@ public class GCDocument extends JInternalFrame {
     }
     
     public void addChartPanelView(ChartPanelView chartPanelView) {
-        chartPanelView.addPropertyChangeListener(new PropertyChangeListener() {
-            public void propertyChange(PropertyChangeEvent event) {
-                if (ChartPanelView.EVENT_MINIMIZED.equals(event.getPropertyName())) {
-                    relayout();
-                }
-                else if (ChartPanelView.EVENT_CLOSED.equals(event.getPropertyName())) {
-                    removeChartPanelView((ChartPanelView) event.getSource());
-                }
-            }
-        });
+        chartPanelView.addPropertyChangeListener(event -> {
+			if (ChartPanelView.EVENT_MINIMIZED.equals(event.getPropertyName())) {
+				relayout();
+			}
+			else if (ChartPanelView.EVENT_CLOSED.equals(event.getPropertyName())) {
+				removeChartPanelView((ChartPanelView) event.getSource());
+			}
+		});
 
         chartPanelViews.add(chartPanelView);
         
@@ -205,19 +192,18 @@ public class GCDocument extends JInternalFrame {
                 final JViewport viewport = modelChart.getViewport();
                 lockChartsToOneScrollbar(viewport, isLastMaximizedChartPanelView, modelChart, masterViewPortChangeListener);
 
-                final JScrollBar horizontalScrollBar = modelChart.getHorizontalScrollBar();
+                final DefaultBoundedRangeModel scrollBarModel = (DefaultBoundedRangeModel) modelChart.getHorizontalScrollBar().getModel();
+
                 // clean old change listeners
-                ChangeListener[] changeListeners = ((DefaultBoundedRangeModel) horizontalScrollBar.getModel()).getChangeListeners();
-                for (int j = 0; j < changeListeners.length; j++) {
-                    if (changeListeners[j] instanceof ScrollBarMaximumChangeListener) {
-                        horizontalScrollBar.getModel().removeChangeListener(changeListeners[j]);
-                    }
-                }
+                stream(scrollBarModel.getChangeListeners())
+					.filter(ScrollBarMaximumChangeListener.class::isInstance)
+					.forEach(scrollBarModel::removeChangeListener);
+
                 if (isLastMaximizedChartPanelView && isWatched()) {
-                    horizontalScrollBar.getModel().addChangeListener(new ScrollBarMaximumChangeListener());
+                    scrollBarModel.addChangeListener(new ScrollBarMaximumChangeListener());
                 }
                 if (isLastMaximizedChartPanelView) {
-                    horizontalScrollBar.setEnabled(!isWatched());
+                    modelChart.getHorizontalScrollBar().setEnabled(!isWatched());
                 }
             }
             row++;
@@ -238,12 +224,12 @@ public class GCDocument extends JInternalFrame {
 
     private void lockChartsToOneScrollbar(final JViewport viewport, final boolean lastMaximizedChartPanelView, final ModelChartImpl modelChart, MasterViewPortChangeListener masterViewPortChangeListener) {
         // TODO SWINGWORKER: now horizontal scrollbar is shown, when last file has not longest runningtime
-        ChangeListener[] changeListeners = viewport.getChangeListeners();
-        for (int j = 0; j < changeListeners.length; j++) {
-            if (changeListeners[j] instanceof MasterViewPortChangeListener) {
-                viewport.removeChangeListener(changeListeners[j]);
-            }
-        }
+
+		// clean old change listeners
+		stream(viewport.getChangeListeners())
+			.filter(MasterViewPortChangeListener.class::isInstance)
+			.forEach(viewport::removeChangeListener);
+
         if (lastMaximizedChartPanelView) {
             modelChart.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
             // add scrollbar listener
@@ -294,7 +280,7 @@ public class GCDocument extends JInternalFrame {
     }
 
     private static class MasterViewPortChangeListener implements ChangeListener {
-        private List<JViewport> slaveViewPorts = new ArrayList<JViewport>();
+        private List<JViewport> slaveViewPorts = new ArrayList<>();
 
         public void addSlaveViewport(JViewport viewPort) {
             slaveViewPorts.add(viewPort);
@@ -309,15 +295,10 @@ public class GCDocument extends JInternalFrame {
         }
     }
 
-    public ChartPanelView getLastMaximizedChartPanelView() {
-        ChartPanelView lastMaximizedChartPanelView = null;
-        for (int i = 0; i < chartPanelViews.size(); i++) {
-            final ChartPanelView chartPanelView = chartPanelViews.get(i);
-            if (!chartPanelView.isMinimized()) {
-                lastMaximizedChartPanelView = chartPanelView;
-            }
-        }
-        return lastMaximizedChartPanelView;
+    private ChartPanelView getLastMaximizedChartPanelView() {
+    	return chartPanelViews.stream()
+			.filter(view -> !view.isMinimized())
+			.reduce((a, b) -> b).orElse(null);
     }
 
     private void scaleModelChart() {
@@ -329,29 +310,22 @@ public class GCDocument extends JInternalFrame {
     }
 
     private double getMaxRunningTime() {
-        double max = 0;
-        for (int i = 0; i < chartPanelViews.size(); i++) {
-            max = Math.max(max, chartPanelViews.get(i).getGCResource().getModel().getRunningTime());
-        }
-        return max;
+		return chartPanelViews.stream()
+			.mapToDouble(v -> v.getGCResource().getModel().getRunningTime())
+			.max().orElse(0.0);
     }
 
     private long getMaxFootprint() {
-        long max = 0;
-        for (int i = 0; i < chartPanelViews.size(); i++) {
-            max = Math.max(max, chartPanelViews.get(i).getGCResource().getModel().getFootprint());
-        }
-        return max;
+		return chartPanelViews.stream()
+			.mapToLong(v -> v.getGCResource().getModel().getFootprint())
+			.max().orElse(0);
     }
 
     private double getMaxMaxPause() {
-        double max = 0;
-        for (int i = 0; i < chartPanelViews.size(); i++) {
-            max = Math.max(max, chartPanelViews.get(i).getGCResource().getModel().getPause().getMax());
-        }
-        return max;
+ 		return chartPanelViews.stream()
+			.mapToDouble(v -> v.getGCResource().getModel().getPause().getMax())
+			.max().orElse(0.0);
     }
-
 
     private class MultiModelChartFacade implements ModelChart {
 

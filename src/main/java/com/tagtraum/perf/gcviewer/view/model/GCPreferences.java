@@ -6,11 +6,13 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
-import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.IntStream;
+
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
 
 /**
  * Holds preferences of GCViewer and can load / store them from / in a file.
@@ -19,6 +21,11 @@ import java.util.logging.Logger;
  * <p>created on: 20.11.2011</p>
  */
 public class GCPreferences {
+
+    private static File preferencesFile() {
+        return new File(System.getProperty("user.home"),  ".gcviewer.properties");
+    }
+
     public static final String FULL_GC_LINES = "fullgclines";
     public static final String INC_GC_LINES = "incgclines";
     public static final String GC_TIMES_LINE = "gctimesline";
@@ -33,7 +40,7 @@ public class GCPreferences {
     public static final String CONCURRENT_COLLECTION_BEGIN_END = "concurrentcollectionbeginend";
     public static final String ANTI_ALIAS = "antialias";
     
-    public static final String SHOW_DATA_PANEL = "showdatapanel";
+    private static final String SHOW_DATA_PANEL = "showdatapanel";
     public static final String SHOW_DATE_STAMP = "showdatestamp";
     public static final String SHOW_MODEL_METRICS_PANEL = "showmodelmetricspanel";
     
@@ -53,44 +60,36 @@ public class GCPreferences {
     
     private static final Logger LOGGER = Logger.getLogger(GCPreferences.class.getName());
 
-    private Properties properties = new Properties();
-    private boolean propertiesLoaded = false; 
+    private final Properties properties = new Properties();
+
+    private boolean propertiesLoaded = false;
     
-    public GCPreferences() {
-        super();
-        
-        load();
-    }
-        
     /**
      * Save properties to a file.
      */
     public void store() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(getPreferencesFile()))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(preferencesFile()))) {
             properties.store(writer, "GCViewer preferences");
         }
         catch (IOException e) {
-            if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("could not store preferences (" + e.toString() + ")");
-            }
+			LOGGER.warning(() ->"could not store preferences (" + e + ")");
         }
     }
     
     /**
      * Loads properties from a file.
      */
-    public void load() {
-        if (getPreferencesFile().exists()) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(getPreferencesFile()))) {
-                propertiesLoaded = true;
+    public GCPreferences load() {
+        if (preferencesFile().exists()) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(preferencesFile()))) {
                 properties.load(reader);
-            } 
+                propertiesLoaded = true;
+            }
             catch (IOException e) {
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("could not load preferences (" + e.toString() + ")");
-                }
+				LOGGER.warning(() -> "could not load preferences (" + e + ")");
             }
         }
+        return this;
     }
     
     public boolean isPropertiesLoaded() {
@@ -106,7 +105,7 @@ public class GCPreferences {
         this.properties.putAll(gcPreferences.properties);
     }
     
-    public boolean getBooleanProperty(String key) {
+    private boolean getBooleanProperty(String key) {
         return getBooleanValue(key, true);
     }
     
@@ -155,24 +154,14 @@ public class GCPreferences {
     }
     
     public void setRecentFiles(List<String> fileNames) {
-        int i = 0;
-        for (String fileName : fileNames) {
-            properties.setProperty(RECENT_FILE_PREFIX + i++, fileName);
-        }
+		range(0, fileNames.size()).forEach(i -> properties.setProperty(RECENT_FILE_PREFIX + i, fileNames.get(i)));
     }
     
     public List<String> getRecentFiles() {
-        List<String> recentFiles = new LinkedList<String>();
-        String filename;
-        int i = 0;
-        do {
-            filename = properties.getProperty(RECENT_FILE_PREFIX + i++);
-            if (filename != null) {
-                recentFiles.add(filename);
-            }
-        } while (filename != null);
-        
-        return recentFiles;
+		return properties.entrySet().stream()
+			.filter(e -> String.valueOf(e.getKey()).startsWith(RECENT_FILE_PREFIX))
+			.map(e -> String.valueOf(e.getValue()))
+			.collect(toList());
     }
     
     public boolean getGcLineProperty(String key) {
@@ -197,16 +186,12 @@ public class GCPreferences {
             result = Integer.parseInt(properties.getProperty(key));
         }
         catch (NumberFormatException e) {
-            LOGGER.info(() -> "could not read property '" + key + "' from " + getPreferencesFile().getAbsolutePath() + "; using default: " + defaultValue);
+            LOGGER.info(() -> "could not read property '" + key + "' from " + preferencesFile().getAbsolutePath() + "; using default: " + defaultValue);
         }
         
         return result;
     }
 
-    private File getPreferencesFile() {
-        return new File(System.getProperty("user.home") + "/gcviewer.properties");
-    }
-    
     public void setShowDataPanel(boolean showDataPanel) {
         setBooleanProperty(GC_LINE_PREFIX + SHOW_DATA_PANEL, showDataPanel);
     }

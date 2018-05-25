@@ -5,9 +5,12 @@ import com.tagtraum.perf.gcviewer.view.model.GCPreferences;
 import javax.swing.*;
 import java.awt.*;
 import java.beans.PropertyVetoException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toList;
 
 /**
  * This is the main window of GCViewer.
@@ -28,7 +31,7 @@ public class GCViewerGui extends JFrame {
     public GCViewerGui() {
         super("tagtraum industries incorporated - GCViewer");
 
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
     }
     
     public void addDocument(GCDocument gcDocument) {
@@ -67,15 +70,15 @@ public class GCViewerGui extends JFrame {
     }
 
     public List<GCDocument> getAllGCDocuments() {
-        List<GCDocument> documents = new ArrayList<>();
-        for (JInternalFrame frame : desktopPane.getAllFrames()) {
-            if (frame instanceof GCDocument) {
-                GCDocument document = (GCDocument) frame;
-                documents.add(document);
-            }
-        }
-        return documents;
+		return stream(desktopPane.getAllFrames())
+			.filter(GCDocument.class::isInstance)
+			.map(GCDocument.class::cast)
+			.collect(toList());
     }
+
+	public GCViewerGuiMenuBar getMenubar() {
+		return (GCViewerGuiMenuBar) getJMenuBar();
+	}
 
     public GCViewerGuiToolBar getToolBar() {
         return toolBar;

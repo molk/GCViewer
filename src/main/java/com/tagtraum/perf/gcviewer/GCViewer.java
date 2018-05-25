@@ -27,8 +27,9 @@ public class GCViewer {
     private static final int EXIT_EXPORT_FAILED = -1;
     private static final int EXIT_ARGS_PARSE_FAILED = -2;
     private static final int EXIT_TOO_MANY_ARGS = -3;
-    private GCViewerGuiController gcViewerGuiController;
-    private GCViewerArgsParser gcViewerArgsParser;
+
+    private final GCViewerGuiController gcViewerGuiController;
+    private final GCViewerArgsParser gcViewerArgsParser;
 
     public GCViewer() {
         this(new GCViewerGuiController(), new GCViewerArgsParser());
@@ -41,15 +42,14 @@ public class GCViewer {
 
     public static void main(final String[] args) throws InvocationTargetException, InterruptedException {
         int exitValue = new GCViewer().doMain(args);
-        if (exitValue != 0) {
+        if (exitValue != EXIT_OK) {
             System.exit(exitValue);
         }
     }
 
     public int doMain(String[] args) throws InvocationTargetException, InterruptedException {
-        GCViewerArgsParser argsParser = gcViewerArgsParser;
         try {
-            argsParser.parseArguments(args);
+            gcViewerArgsParser.parseArguments(args);
         }
         catch (GCViewerArgsParserException e) {
             usage();
@@ -57,16 +57,16 @@ public class GCViewer {
             return EXIT_ARGS_PARSE_FAILED;
         }
 
-        if (argsParser.getArgumentCount() > 3) {
+        if (gcViewerArgsParser.getArgumentCount() > 3) {
             usage();
             return EXIT_TOO_MANY_ARGS;
         }
-        else if (argsParser.getArgumentCount() >= 2) {
+        else if (gcViewerArgsParser.getArgumentCount() >= 2) {
             LOGGER.info("GCViewer command line mode");
-            GCResource gcResource = argsParser.getGcResource();
-            String summaryFilePath = argsParser.getSummaryFilePath();
-            String chartFilePath = argsParser.getChartFilePath();
-            DataWriterType type = argsParser.getType();
+            GCResource gcResource = gcViewerArgsParser.getGcResource();
+            String summaryFilePath = gcViewerArgsParser.getSummaryFilePath();
+            String chartFilePath = gcViewerArgsParser.getChartFilePath();
+            DataWriterType type = gcViewerArgsParser.getType();
 
             //export summary:
             try {
@@ -80,7 +80,7 @@ public class GCViewer {
             }
         }
         else {
-            gcViewerGuiController.startGui(argsParser.getArgumentCount() == 1 ? argsParser.getGcResource() : null);
+            gcViewerGuiController.startGui(gcViewerArgsParser.getArgumentCount() == 1 ? gcViewerArgsParser.getGcResource() : null);
             return EXIT_OK;
         }
     }
@@ -103,8 +103,7 @@ public class GCViewer {
     }
 
     private void renderChart(GCModel model, String chartFilePath) throws IOException {
-        SimpleChartRenderer renderer = new SimpleChartRenderer();
-        renderer.render(model, new FileOutputStream(new File(chartFilePath)));
+        new SimpleChartRenderer().render(model, new FileOutputStream(new File(chartFilePath)));
     }
 
     private static void usage() {

@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+#mvn clean install
+mkdir -p target/mac/GCViewer.app/Contents/Java
+cp target/gcviewer*.jar target/mac/GCViewer.app/Contents/Java
+chmod +x target/mac/GCViewer.app/Contents/MacOs/JavaAppLauncher
+
+ls -ld target/mac/GCViewer.app

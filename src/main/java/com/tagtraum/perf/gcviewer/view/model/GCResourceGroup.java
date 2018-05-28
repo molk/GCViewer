@@ -1,18 +1,20 @@
 package com.tagtraum.perf.gcviewer.view.model;
 
+import com.tagtraum.perf.gcviewer.model.GCResource;
+import com.tagtraum.perf.gcviewer.model.GcResourceFile;
+import com.tagtraum.perf.gcviewer.model.GcResourceSeries;
+
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.StringJoiner;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.tagtraum.perf.gcviewer.model.GCResource;
-import com.tagtraum.perf.gcviewer.model.GcResourceFile;
-import com.tagtraum.perf.gcviewer.model.GcResourceSeries;
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toList;
 
 /**
  * <p>Holds a group of resource names (those displayed in the same GCDocument).</p>
@@ -28,7 +30,7 @@ public class GCResourceGroup {
     private List<String> gcResourceList;
 
     public GCResourceGroup(List<GCResource> gcResourceList) {
-        this.gcResourceList = gcResourceList.stream().map(this::getResourceUrlString).collect(Collectors.toList());
+        this.gcResourceList = gcResourceList.stream().map(this::getResourceUrlString).collect(toList());
     }
 
     /**
@@ -42,47 +44,41 @@ public class GCResourceGroup {
         gcResourceList = getResourceUrlString(resources);
     }
 
-    private List<String> getResourceUrlString(String[] resources) {
-        List<String> urls = new ArrayList<>();
-        for (String resource : resources) {
-            String url = getResourceUrlString(resource);
-            if (url != null) {
-                urls.add(url);
-            }
-        }
-        return urls;
+    private static List<String> getResourceUrlString(String[] resources) {
+		return stream(resources)
+			.map(r -> getResourceUrlString(r))
+			.filter(Objects::nonNull)
+			.collect(toList());
     }
 
-    private String getResourceUrlString(String resource) {
-        URL url = null;
+    private static String getResourceUrlString(String resource) {
         try {
-            if (resource.startsWith("http") || resource.startsWith("file")) {
-                url = new URL(resource);
-            }
-            else {
-                url = new File(resource).toURI().toURL();
-            }
+            return resource.startsWith("http") || resource.startsWith("file")
+                ? new URL(resource).toString()
+                : new File(resource).toURI().toURL().toString();
 
         }
         catch (MalformedURLException ex) {
             logger.log(Level.WARNING, "Failed to determine URL of " + resource + ". Reason: " + ex.getMessage());
             logger.log(Level.FINER, "Details: ", ex);
+
+            return null;
         }
-        return url != null ? url.toString() : null;
     }
 
     private String getResourceUrlString(GCResource gcResource) {
-        if (gcResource instanceof GcResourceFile)
+        if (gcResource instanceof GcResourceFile) {
             return ((GcResourceFile) gcResource).getResourceNameAsUrlString();
-        else if (gcResource instanceof GcResourceSeries) {
-            StringJoiner joiner = new StringJoiner(SERIES_SEPARATOR);
-            for (GCResource inner : ((GcResourceSeries) gcResource).getResourcesInOrder()) {
-                joiner.add(((GcResourceFile) inner).getResourceNameAsUrlString());
-            }
-            return joiner.toString();
+		}
+
+        if (gcResource instanceof GcResourceSeries) {
+			return ((GcResourceSeries) gcResource).getResourcesInOrder().stream()
+				.map(GcResourceFile.class::cast)
+				.map(GcResourceFile::getResourceNameAsUrlString)
+				.collect(Collectors.joining(SERIES_SEPARATOR));
         }
-        else
-            throw new IllegalArgumentException("Unknown GCResource type!");
+
+		throw new IllegalArgumentException("Unknown GCResource type!");
     }
 
     /**
@@ -91,35 +87,22 @@ public class GCResourceGroup {
      * @return resource names as array of strings
      */
     public List<GCResource> getGCResourceList() {
-        List<GCResource> resources = new ArrayList<>();
-        for (String entry : gcResourceList) {
-            GCResource resource = getGcResource(entry);
-            resources.add(resource);
-        }
-
-        return resources;
+		return gcResourceList.stream()
+			.map(GCResourceGroup::getGcResource)
+			.collect(toList());
     }
 
-    private GCResource getGcResource(String entry) {
-        GCResource resource;
-        if (entry.contains(SERIES_SEPARATOR)) {
-            resource = getGcResourceSeries(entry);
-        }
-        else {
-            resource = new GcResourceFile(entry);
-        }
-        return resource;
+    private static GCResource getGcResource(String entry) {
+        return entry.contains(SERIES_SEPARATOR)
+            ? getGcResourceSeries(entry)
+			: new GcResourceFile(entry);
     }
 
-    private GCResource getGcResourceSeries(String entry) {
-        GCResource resource;
-        List<GCResource> series = new ArrayList<>();
-        for (String s : entry.split(SERIES_SEPARATOR)) {
-            series.add(new GcResourceFile(s));
-        }
-
-        resource = new GcResourceSeries(series);
-        return resource;
+    private static GCResource getGcResourceSeries(String entry) {
+		return new GcResourceSeries(
+			stream(entry.split(SERIES_SEPARATOR))
+				.map(GcResourceFile::new)
+				.collect(toList()));
     }
 
     /**
@@ -128,12 +111,7 @@ public class GCResourceGroup {
      * @return single string with all resource names separated by a ";"
      */
     public String getUrlGroupString() {
-        StringBuilder sb = new StringBuilder();
-        for (String resource : gcResourceList) {
-            sb.append(resource).append(RESOURCE_SEPARATOR);
-        }
-
-        return sb.toString();
+		return String.join(RESOURCE_SEPARATOR, gcResourceList) + RESOURCE_SEPARATOR;
     }
 
     /**

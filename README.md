@@ -431,6 +431,15 @@ Execute from the GCViewer base directory (same as pom.xml):
 
 The executable jar will be placed in the target directory.
 
+Building the macOS Bundle
+--
+A successful Mavn build will place an empty macOS application bundle under `target/mac`.
+The executable jar has to be copied to `mac/GCViever.app/Contents/Java`
+and the laucher executable `mac/GCViever.app/Contents/MacOS/JavaAppLauncher` needs the executable flag.
+
+Run the shell script `mac/make_bundle` to perform these steps:
+
+    $ cd target/mac ; chmod +x make_bundle; ./make_bundle ; cd -
 
 Enjoy!
 

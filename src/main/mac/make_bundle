@@ -1,0 +1,8 @@
+#!/bin/bash
+set -ex
+
+mkdir -p GCViewer.app/Contents/Java
+cp ../gcviewer*.jar GCViewer.app/Contents/Java
+chmod +x GCViewer.app/Contents/MacOs/JavaAppLauncher
+
+echo "Done. Application bundle target/mac/GCViewer.app is executable now."
